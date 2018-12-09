@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# provide jarvis completions
+# Usage: jarvis park [-d | --directory <dir>]
+# Summary: Parks a mass virtualhost directory
+# Help: Sets up a directory to search for mass virtual hosted sites
+#
+# If --directory is not specified, the current working directory is assumed
+
+set -e
+
+
+if [ "${1}" == '--complete' ]; then
+    echo '-d --directory'
+    exit
+fi
+
+[ "${UID}" -eq 0 ] || run_with_sudo "${0}" "${@}"
+
+TEMP=`getopt -o d: --long directory -n 'jarvis park' -- "$@"`
+eval set -- "$TEMP"
+
+DIRECTORY=$(pwd)
+while true; do
+  case "$1" in
+    -d | --directory ) DIRECTORY=$2; shift 2 ;;
+    -- ) shift; break ;;
+    * ) break ;;
+  esac
+done
+
+tmpfile=$(mktemp --tmpdir=$(dirname ${_JARVIS_CONFIG}) -t)
+jq -S ".parked = (.parked + [\"${DIRECTORY}\"] | unique)" ${_JARVIS_CONFIG} > ${tmpfile} && \
+    mv -f "${tmpfile}" "${_JARVIS_CONFIG}" && \
+    chmod a+r "${_JARVIS_CONFIG}"
+
+update_apache_jarvis

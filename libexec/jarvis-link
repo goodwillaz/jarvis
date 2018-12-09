@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# provide jarvis completions
+# Usage: jarvis link [-d | --directory <dir>] [hostname]
+# Summary: Links a directory as a site
+# Help: Sets up a directory to be served as a host
+#
+# If --directory is not specified, the current working directory is assumed
+
+set -e
+
+
+if [ "${1}" == '--complete' ]; then
+    echo '-d --directory'
+    exit
+fi
+
+TEMP=`getopt -o d: --long directory -n 'jarvis link' -- "$@"`
+eval set -- "$TEMP"
+
+DIRECTORY=$(pwd)
+while true; do
+  case "$1" in
+    -d | --directory ) DIRECTORY=$2; shift 2 ;;
+    -- ) shift; break ;;
+    * ) break ;;
+  esac
+done
+
+HOSTNAME=$1
+
+if [ -z ${HOSTNAME} ]; then
+    HOSTNAME=${DIRECTORY##*/}
+fi
+
+ln -s $DIRECTORY $_JARVIS_ROOT/sites/$HOSTNAME

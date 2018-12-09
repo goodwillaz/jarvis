@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# provide jarvis completions
+# Usage: jarvis php [-g | --global] [--directory <dir>] <version>
+# Summary: Sets global or individual application php versions
+# Help: Sets global or individual application php versions
+#
+# If --directory is not specified, the current working directory is assumed
+
+set -e
+
+if [ "${1}" == '--complete' ]; then
+    echo '-g --global -d --default --directory'
+    exit
+fi
+
+[ "${UID}" -eq 0 ] || run_with_sudo "${0}" -d $(pwd) "${@}"
+
+TEMP=`getopt -o g,d: --long global,default,directory: -n 'jarvis php' -- "$@"`
+eval set -- "$TEMP"
+
+GLOBAL=false
+DEFAULT=false
+DIRECTORY=$(pwd)
+while true; do
+  case "$1" in
+    --default ) DEFAULT=true; shift ;;
+    -g | --global ) GLOBAL=true; shift ;;
+    -d | --directory ) DIRECTORY=$2; shift 2 ;;
+    -- ) shift; break ;;
+    * ) break ;;
+  esac
+done
+
+VERSION=${1}
+if [ -z ${VERSION} ] && [ "${DEFAULT}" == "false" ]; then
+    jarvis help php
+    exit
+fi
+
+if "${GLOBAL}" == "true"; then
+    update-alternatives --set php /usr/bin/php$VERSION
+    update-alternatives --set php-config /usr/bin/php-config$VERSION
+    update-alternatives --set phpize /usr/bin/phpize$VERSION
+    exit
+fi
+
+tmpfile=$(mktemp --tmpdir=$(dirname ${_JARVIS_CONFIG}) -t)
+
+if "${DEFAULT}" == "true"; then
+    jq -S "del(.override[]? | select(.path == \"${DIRECTORY}\"))" "${_JARVIS_CONFIG}" > ${tmpfile} && \
+        mv -f "${tmpfile}" "${_JARVIS_CONFIG}" && \
+        chmod a+r "${_JARVIS_CONFIG}"
+else
+    jq -S ".override += [{\"path\":\"${DIRECTORY}\"}] \
+            | .override = (.override | unique_by(.path)) \
+            | (.override[] | select(.path == \"${DIRECTORY}\").version) = \"${VERSION}\"" "${_JARVIS_CONFIG}" > ${tmpfile} && \
+        mv -f "${tmpfile}" "${_JARVIS_CONFIG}" && \
+        chmod a+r "${_JARVIS_CONFIG}"
+fi
+
+update_apache_jarvis

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+. $_JARVIS_ROOT/libexec/jarvis-install
+
+function update_composer() {
+    composer self-update
+}
+
+function update_zray() {
+    wget -qO - http://repos.zend.com/zend-server/early-access/ZRay-Homestead/zray-standalone-php72.tar.gz | tar -xzC /opt -f -
+}
+
+function update_email() {
+    curl -Ls https://api.github.com/repos/mailhog/MailHog/releases/latest | \
+        grep -oP 'https://.*linux_amd64' | \
+        xargs curl -sLo /tmp/mailhog
+    chmod +x /tmp/mailhog
+    mv /tmp/mailhog /usr/local/bin/mailhog
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    set -e
+
+    [ "${UID}" -eq 0 ] || run_with_sudo "${0}" "${@}"
+
+    apt update
+
+    install_apache
+    install_php
+    update_composer
+    update_zray
+    install_ngrok
+    update_email
+
+    restart_services
+fi

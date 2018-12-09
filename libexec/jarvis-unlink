@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# provide jarvis completions
+# Usage: jarvis unlink <hostname>
+# Summary: Unlinks a site
+# Help: Removes a linked host
+
+set -e
+
+HOSTNAME=$1
+
+if [ -z ${HOSTNAME} ]; then
+    jarvis help unlink
+    exit
+fi
+
+rm -f $_JARVIS_ROOT/sites/$HOSTNAME

@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+# Usage: jarvis install
+# Summary: Install the components needed for Jarvis (Apache, PHP, etc)
+# Help: Installs and sets up Apache, PHP and some other utilities for development
+#
+# Applications installed:
+#   Apache
+#   PHP 5.6 and 7.2
+#   composer
+#   ngrok
+#   ssmtp
+#   Mailhog
+#   dnsmasq
+
+function install_apache() {
+    apt install -y apache2
+    mkdir -p /etc/apache2/jarvis
+    [ ! -f /etc/apache2/conf-available/jarvis.conf ] && \
+        cp $_JARVIS_ROOT/share/jarvis/jarvis.conf /etc/apache2/conf-available/jarvis.conf
+    a2enmod rewrite proxy_fcgi macro info
+    a2enconf jarvis
+    a2dissite 000-default.conf
+}
+
+function install_php() {
+    apt install -y \
+      php7.2-cli php7.2-fpm php7.2-dev \
+      php7.2-pgsql php7.2-sqlite3 php7.2-gd \
+      php7.2-curl php7.2-imap php7.2-mysql php7.2-mbstring \
+      php7.2-xml php7.2-zip php7.2-bcmath php7.2-soap \
+      php7.2-intl php7.2-readline php7.2-ldap \
+      php5.6-cli php5.6-fpm php5.6-dev \
+      php5.6-pgsql php5.6-sqlite3 php5.6-gd \
+      php5.6-curl php5.6-imap php5.6-mysql php5.6-mbstring \
+      php5.6-xml php5.6-zip php5.6-bcmath php5.6-soap \
+      php5.6-intl php5.6-readline php5.6-mcrypt \
+      php-memcached php-apcu php-xdebug php-pear php-imagick imagemagick
+
+    update-alternatives --set php /usr/bin/php7.2
+    update-alternatives --set php-config /usr/bin/php-config7.2
+    update-alternatives --set phpize /usr/bin/phpize7.2
+    a2enconf php7.2-fpm
+}
+
+function fix_php_ini() {
+    _edit() {
+        sed -i "s~${3}~${4}~" /etc/php/$1/$2/php.ini
+    }
+
+    _edit 5.6 cli 'error_reporting = .*' 'error_reporting = E_ALL'
+    _edit 5.6 cli 'display_errors = .*' 'display_errors = On'
+    _edit 5.6 cli 'memory_limit = .*' 'memory_limit = 512M'
+    _edit 5.6 cli ';date.timezone.*' 'date.timezone = UTC'
+    _edit 5.6 cli ';curl.cainfo.*' 'curl.cainfo = /etc/ssl/certs/ca-certificates.crt'
+
+    _edit 5.6 fpm 'error_reporting = .*' 'error_reporting = E_ALL'
+    _edit 5.6 fpm 'display_errors = .*' 'display_errors = On'
+    _edit 5.6 fpm 'memory_limit = .*' 'memory_limit = 512M'
+    _edit 5.6 fpm 'upload_max_filesize = .*' 'upload_max_filesize = 100M'
+    _edit 5.6 fpm 'post_max_size = .*' 'post_max_size = 100M'
+    _edit 5.6 fpm ';date.timezone.*' 'date.timezone = UTC'
+    _edit 5.6 fpm ';curl.cainfo.*' 'curl.cainfo = /etc/ssl/certs/ca-certificates.crt'
+
+    _edit 7.2 cli 'error_reporting = .*' 'error_reporting = E_ALL'
+    _edit 7.2 cli 'display_errors = .*' 'display_errors = On'
+    _edit 7.2 cli 'memory_limit = .*' 'memory_limit = 512M'
+    _edit 7.2 cli ';date.timezone.*' 'date.timezone = UTC'
+    _edit 7.2 cli ';curl.cainfo.*' 'curl.cainfo = /etc/ssl/certs/ca-certificates.crt'
+
+    _edit 7.2 fpm 'error_reporting = .*' 'error_reporting = E_ALL'
+    _edit 7.2 fpm 'display_errors = .*' 'display_errors = On'
+    _edit 7.2 fpm 'memory_limit = .*' 'memory_limit = 512M'
+    _edit 7.2 fpm 'upload_max_filesize = .*' 'upload_max_filesize = 100M'
+    _edit 7.2 fpm 'post_max_size = .*' 'post_max_size = 100M'
+    _edit 7.2 fpm ';date.timezone.*' 'date.timezone = UTC'
+    _edit 7.2 fpm ';curl.cainfo.*' 'curl.cainfo = /etc/ssl/certs/ca-certificates.crt'
+
+    if ! grep -q remote_enable /etc/php/5.6/mods-available/xdebug.ini ; then
+        echo "xdebug.remote_enable = 1" >> /etc/php/5.6/mods-available/xdebug.ini
+        echo "xdebug.remote_connect_back = 1" >> /etc/php/5.6/mods-available/xdebug.ini
+        echo "xdebug.remote_port = 9000" >> /etc/php/5.6/mods-available/xdebug.ini
+        echo "xdebug.max_nesting_level = 512" >> /etc/php/5.6/mods-available/xdebug.ini
+        echo "opcache.revalidate_freq = 0" >> /etc/php/5.6/mods-available/opcache.ini
+    fi
+
+    if ! grep -q remote_enable /etc/php/7.2/mods-available/xdebug.ini ; then
+        echo "xdebug.remote_enable = 1" >> /etc/php/7.2/mods-available/xdebug.ini
+        echo "xdebug.remote_connect_back = 1" >> /etc/php/7.2/mods-available/xdebug.ini
+        echo "xdebug.remote_port = 9000" >> /etc/php/7.2/mods-available/xdebug.ini
+        echo "xdebug.max_nesting_level = 512" >> /etc/php/7.2/mods-available/xdebug.ini
+        echo "opcache.revalidate_freq = 0" >> /etc/php/7.2/mods-available/opcache.ini
+    fi
+}
+
+function install_composer() {
+    curl -sS https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/local/bin --quiet
+}
+
+function install_zray() {
+    wget -qO - http://repos.zend.com/zend-server/early-access/ZRay-Homestead/zray-standalone-php72.tar.gz | tar -xzC /opt -f -
+    ln -sf /opt/zray/lib/zray.so /usr/lib/php/20170718/zray.so
+    ln -sf /opt/zray/zray.ini /etc/php/7.2/mods-available/zray.ini
+    phpenmod -v 7.2 zray
+
+    cat > /etc/apache2/conf-available/zray.conf << EOF
+Alias /ZendServer /opt/zray/gui/public
+
+<Directory /opt/zray/gui/public>
+    Options -Indexes
+    AllowOverride All
+    Require local
+</Directory>
+EOF
+
+    a2enconf zray
+}
+
+function restart_services() {
+    service apache2 restart
+    service php5.6-fpm restart
+    service php7.2-fpm restart
+    service mailhog restart
+}
+
+function install_ngrok() {
+    wget -q -O- https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tar.gz | tar -xzC /tmp --overwrite
+    mv /tmp/ngrok /usr/local/bin/ngrok
+}
+
+function install_email() {
+    # sSMTP to forward mail to mailhog
+    apt install -y ssmtp
+    sed -i "s/mailhub=.*/mailhub=127.0.0.1:1025/" /etc/ssmtp/ssmtp.conf
+
+    curl -Ls https://api.github.com/repos/mailhog/MailHog/releases/latest | \
+        grep -oP 'https://.*linux_amd64' | \
+        xargs curl -sLo /tmp/mailhog
+    chmod +x /tmp/mailhog
+    mv /tmp/mailhog /usr/local/bin/mailhog
+
+    [ ! -f /etc/mailhog.json ] && echo "{}" > /etc/mailhog.json
+    mkdir -p /var/run/mailhog
+
+    [ ! -f /etc/systemd/system/mailhog.service ] && cat > /etc/systemd/system/mailhog.service <<EOF
+[Unit]
+Description=Mailhog
+After=network.target
+
+[Service]
+Environment=MH_OUTGOING_SMTP=/etc/mailhog.json
+Environment=MH_STORAGE=maildir
+Environment=MH_MAILDIR_PATH=/var/run/mailhog
+ExecStart=/usr/bin/env /usr/local/bin/mailhog > /dev/null 2>&1 &
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable mailhog
+    service mailhog start
+}
+
+function setup_dnsmasq() {
+    systemctl stop systemd-resolved
+    systemctl disable systemd-resolved
+    rm /etc/resolv.conf
+
+    ! grep -q '^dns=dnsmasq' /etc/NetworkManager/NetworkManager.conf && sed -i 's/\[main\]/&\ndns=dnsmasq/' /etc/NetworkManager/NetworkManager.conf
+
+    service network-manager reload
+}
+
+function initial_setup() {
+    if [ -d $_JARVIS_ROOT/sites ]; then return; fi
+
+    mkdir -p $_JARVIS_ROOT/sites
+    echo {} > $_JARVIS_ROOT/config.json
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    set -e
+
+    # Place this above the run_with_sudo call below so it creates as regular user
+    initial_setup
+
+    [ "${UID}" -eq 0 ] || run_with_sudo "${0}" "${@}"
+
+    echo "deb https://packages.sury.org/php/ stretch main" > /etc/apt/sources.list.d/php.list
+    apt update
+
+    install_apache
+    install_php
+    fix_php_ini
+    install_composer
+    install_zray
+    install_ngrok
+    install_email
+    setup_dnsmasq
+
+    restart_services
+
+    jarvis park $_JARVIS_ROOT/sites
+fi
