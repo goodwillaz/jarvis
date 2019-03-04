@@ -21,8 +21,11 @@ abs_dirname() {
 
 libexec_path="$(abs_dirname "$0")"
 export _JARVIS_ROOT="$(abs_dirname "$libexec_path")"
-export _JARVIS_CONFIG="${_JARVIS_ROOT}/config.json"
+export _JARVIS_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/jarvis/config.json"
+export _JARVIS_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/jarvis"
 export PATH="${libexec_path}:$PATH"
+
+mkdir -p $(dirname ${_JARVIS_CONFIG}) $_JARVIS_DATA
 
 . $_JARVIS_ROOT/share/jarvis/util.sh
 
