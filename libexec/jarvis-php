@@ -8,12 +8,12 @@
 
 set -e
 
-if [ "${1}" == '--complete' ]; then
+if [[ "${1}" == '--complete' ]]; then
     echo '-g --global -d --default --directory'
     exit
 fi
 
-[ "${UID}" -eq 0 ] || run_with_sudo "${0}" -d $(pwd) "${@}"
+[[ "${UID}" -eq 0 ]] || run_with_sudo "${0}" -d $(pwd) "${@}"
 
 TEMP=`getopt -o g,d: --long global,default,directory: -n 'jarvis php' -- "$@"`
 eval set -- "$TEMP"
@@ -32,7 +32,7 @@ while true; do
 done
 
 VERSION=${1}
-if [ -z ${VERSION} ] && [ "${DEFAULT}" == "false" ]; then
+if [[ -z ${VERSION} ]] && [[ "${DEFAULT}" == "false" ]]; then
     jarvis help php
     exit
 fi

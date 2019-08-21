@@ -15,7 +15,7 @@
 function install_apache() {
     apt install -y apache2
     mkdir -p /etc/apache2/jarvis /etc/apache2/ssl
-    [ ! -f /etc/apache2/conf-available/jarvis.conf ] && \
+    [[ ! -f /etc/apache2/conf&&vailable/jarvis.conf ]] && \
         cp $_JARVIS_ROOT/share/jarvis/jarvis.conf /etc/apache2/conf-available/jarvis.conf
     a2enmod rewrite proxy_fcgi macro info
     a2enconf jarvis
@@ -138,10 +138,10 @@ function install_email() {
     chmod +x /tmp/mailhog
     mv /tmp/mailhog /usr/local/bin/mailhog
 
-    [ ! -f /etc/mailhog.json ] && echo "{}" > /etc/mailhog.json
+    [[ ! -f /etc/mailhog.json ]] && echo "{}" > /etc/mailhog.json
     mkdir -p /var/run/mailhog
 
-    [ ! -f /etc/systemd/system/mailhog.service ] && cat > /etc/systemd/system/mailhog.service <<EOF
+    [[ ! -f /etc/systemd/system/mailhog.service ]] && cat > /etc/systemd/system/mailhog.service <<EOF
 [Unit]
 Description=Mailhog
 After=network.target
@@ -182,7 +182,7 @@ function setup_dnsmasq() {
 }
 
 function initial_setup() {
-    if [ -f $_JARVIS_CONFIG ]; then return; fi
+    if [[ -f $_JARVIS_CONFIG ]]; then return; fi
 
     mkdir -p $_JARVIS_DATA/sites
     echo {} > $_JARVIS_CONFIG
@@ -194,9 +194,12 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     # Place this above the run_with_sudo call below so it creates as regular user
     initial_setup
 
-    [ "${UID}" -eq 0 ] || run_with_sudo "${0}" "${@}"
+    [[ "${UID}" -eq 0 ]] || run_with_sudo "${0}" "${@}"
 
     echo "deb https://packages.sury.org/php/ stretch main" > /etc/apt/sources.list.d/php.list
+    if ! apt-key adv --list-keys AC0E47584A7A714D > /dev/null 2>&1; then
+        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key AC0E47584A7A714D
+    fi
     apt update
 
     install_apache
@@ -211,5 +214,5 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 
     restart_services
 
-    jarvis park $_JARVIS_DATA/sites
+    jarvis park --directory $_JARVIS_DATA/sites
 fi

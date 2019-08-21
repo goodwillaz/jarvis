@@ -9,12 +9,12 @@
 set -e
 
 
-if [ "${1}" == '--complete' ]; then
+if [[ "${1}" == '--complete' ]]; then
     echo '-d --directory'
     exit
 fi
 
-[ "${UID}" -eq 0 ] || run_with_sudo "${0}" "${@}"
+[[ "${UID}" -eq 0 ]] || run_with_sudo "${0}" "${@}"
 
 TEMP=`getopt -o d: --long directory -n 'jarvis park' -- "$@"`
 eval set -- "$TEMP"
